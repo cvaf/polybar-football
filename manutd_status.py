@@ -14,9 +14,13 @@ date = tree.xpath(xpath_date)[0].text
 date = date.split(',')[1][1:]
 
 # Fetch match time
-xpath_time = xpath_base + 'td[5]/a'
-time = tree.xpath(xpath_time)[0].text
-time = time.split(' ')[0]
+try:
+    xpath_time = xpath_base + 'td[5]/a'
+    time = tree.xpath(xpath_time)[0].text
+    time = time.split(' ')[0]
+except:
+    time = 'LIVE'
+
 
 # Fetch the home team
 xpath_team1 = xpath_base + 'td[2]/div/a'
