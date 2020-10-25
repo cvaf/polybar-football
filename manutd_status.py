@@ -1,76 +1,85 @@
+#!/home/costas/.virtualenvs/test/bin/python
+
 import requests
-from lxml import html
+from bs4 import BeautifulSoup
 
-# Fetch request
-resp = requests.get('https://www.espn.com/soccer/team/fixtures/_/id/360/manchester-united')
-tree = html.fromstring(resp.text)
-
-xpath_base = '/html/body/div[1]/div/div/div/div/div[5]/div[2]/div[5]/div[1]/div[1]/' +\
-             'section/div/section/div[3]/section[1]/div[2]/div/div[2]/table/tbody/tr[1]/'
-
-# Fetch match date
-xpath_date = xpath_base + 'td[1]/div'
-date = tree.xpath(xpath_date)[0].text
-date = date.split(',')[1][1:]
-
-# Fetch match time
-try:
-    xpath_time = xpath_base + 'td[5]/a'
-    time = tree.xpath(xpath_time)[0].text
-    time = time.split(' ')[0]
-except:
-    time = 'LIVE'
-
-
-# Fetch the home team
-xpath_team1 = xpath_base + 'td[2]/div/a'
-team1 = tree.xpath(xpath_team1)[0].text
-
-# Fetch the away team
-xpath_team2 = xpath_base + 'td[4]/div/a'
-team2 = tree.xpath(xpath_team2)[0].text
-
-# Team abbreviation mapping
-team_mapping = {
-    'Arsenal': 'ARS',
-    'Aston Villa': 'AVL',
-    'AFC Bournemouth': 'BOU',
-    'Brighton & Hove Albion': 'BHA',
-    'Burnley': 'BUR',
-    'Chelsea': 'CHE',
-    'Crystal Palace': 'CRY',
-    'Everton': 'EVE',
-    'Leicester City': 'LEI',
-    'Liverpool': 'LIV',
-    'Manchester City': 'MCI',
-    'Manchester United': 'MUN',
-    'Newcastle United': 'NEW',
-    'Norwich City': 'NOR',
-    'Sheffield United': 'SHU',
-    'Southampton': 'SOU',
-    'Tottenham Hotspur': 'TOT',
-    'Watford': 'WAT',
-    'West Ham United': 'WHU',
-    'Wolverhampton Wanderers': 'WOL'
+TEAM_NAME = "Manchester United" 
+TEAM_MAPPING = {
+    "Arsenal": "ARS",
+    "Aston Villa": "AVL",
+    "AFC Bournemouth": "BOU",
+    "Brighton & Hove Albion": "BHA",
+    "Burnley": "BUR",
+    "Chelsea": "CHE",
+    "Crystal Palace": "CRY",
+    "Everton": "EVE",
+    "Fulham": "FUL",
+    "Leeds United": "LEE",
+    "Leicester City": "LEI",
+    "Liverpool": "LIV",
+    "Manchester City": "MCI",
+    "Manchester United": "MUN",
+    "Newcastle United": "NEW",
+    "Norwich City": "NOR",
+    "Sheffield United": "SHU",
+    "Southampton": "SOU",
+    "Tottenham Hotspur": "TOT",
+    "Watford": "WAT",
+    "West Bromwich Albion": "WBA",
+    "West Ham United": "WHU",
+    "Wolverhampton Wanderers": "WOL",
 }
 
-if __name__ == '__main__':
+def download_soup(team_name: str) -> BeautifulSoup:
+    team = team_name.lower().replace(" ", "-")
+    url = f"https://www.espn.com/soccer/team/fixtures/_/id/360/{team}"
+    resp = requests.get(url)
+    return BeautifulSoup(resp.text, features="lxml")
 
-    # Find the abbreviation for each team and create the  match format
+
+def parse_html_table(soup: BeautifulSoup, class_name: str) -> list:
+    table = soup.find("table", {"class": class_name})
+    data = []
+    rows = table.find_all("tr")
+    for row in rows:
+        cols = row.find_all("td")
+        cols = [ele.text.strip() for ele in cols]
+        data.append(cols)
+    return [d for d in data[-1] if d]
+
+def parse_match(match_info: list) -> str:
+    date_info, home_team, _, away_team, time_info, competition, = match_info
+    
+    # Date
+    weekday, month, day = date_info.split(' ')[:3]
+    date = f"{day} {month}"
+    
+    # Time
+    time, _m = time_info.split(' ')
+    if _m == 'PM':
+      time = f"{int(time.split(':')[0])+12}:{time.split(':')[-1]}"
+    
+    # Match
+    if home_team in TEAM_MAPPING.keys() and away_team in TEAM_MAPPING.keys():
+      match = f"{TEAM_MAPPING[home_team]} - {TEAM_MAPPING[away_team]}"
+    elif home_team == TEAM_NAME:
+      match = f"{away_team} (H)"
+    elif away_team == TEAM_NAME:
+      match = f"{home_team} (A)"
+    else:
+      match = ''
+    
+    return f" {match}; {date}, {time} "
+
+
+if __name__ == "__main__":
+
     try:
-        team1_abv = team_mapping[team1]
-        team2_abv = team_mapping[team2]
+        soup = download_soup(TEAM_NAME)
+        match_info = parse_html_table(soup, "Table")
+        next_game = parse_match(match_info)
 
-        match = ' {} - {}; {}, {} '.format(team1_abv, team2_abv, date, time)
-
-    # If we don't have the abbreviation for the opposing team
-    # we use a different match format.
     except:
+        next_game = ""
 
-        if team1 == 'Manchester United':
-            match = ' {} (H); {}, {} '.format(team2, date, time)
-
-        else:
-            match = ' {} (A); {}, {} '.format(team1, date, time)
-
-    print(match)
+    print(next_game)
