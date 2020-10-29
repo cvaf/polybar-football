@@ -45,7 +45,7 @@ def parse_html_table(soup: BeautifulSoup, class_name: str) -> list:
         cols = row.find_all("td")
         cols = [ele.text.strip() for ele in cols]
         data.append(cols)
-    return [d for d in data[-1] if d]
+    return [d for d in data[1] if d]
 
 def parse_match(match_info: list) -> str:
     date_info, home_team, _, away_team, time_info, competition, = match_info
